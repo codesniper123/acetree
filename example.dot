@@ -1,0 +1,9 @@
+digraph example {
+    node [shape=record]
+
+    Node1 [label="start"]
+    /* struct1 [label="{{0-100|{26|72|100}}{1-50|{2|3|4}}}"]; */
+    struct1 [label="{a|{b|c}}|{d|{e|f}}"]; 
+    Node1 -> struct1
+}
+
