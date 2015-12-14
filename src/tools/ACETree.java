@@ -26,69 +26,6 @@ import java.util.Comparator;
 
 public class ACETree  {
 	/*
-	 * used in:
-	 * - storing the range in InternalNode.  
-	 * - storing the leaf ranges.
-	 */
-	
-	public class Range {
-		protected int begin;
-		protected int end;
-		public Range(int begin, int end ) {
-			this.begin = begin;
-			this.end = end;
-		}
-		
-		public boolean overlaps2(Range that) {
-			if( that.end > this.begin && that.end <= this.end ) 
-				return true;
-			// tbd - is Range inclusive on both ends??
-			if( that.begin > this.begin && that.begin <= this.end )
-				return true;
-			
-			return false;
-		}
-		
-		public boolean overlaps(Range that) {
-			/* 
-			 * three cases:  (Need to see if I am missing a simple way of checking
-			 * 
-			 *        |------------|
-			 *   |------------|
-			 *     
-			 *        |------------|
-			 *             | ------------|
-			 *           
-			 *        |------------| (that)
-			 *             |---|  (this)
-			 *                     
-			 *        |------------| (this)
-			 *             |---|  (that)        
-			 */
-			
-			if( that.end >= this.end && that.begin <= this.end ) 
-				return true;
-			
-			if( that.end >= this.begin && that.begin <= this.begin )
-				return true;
-			
-			if( that.end >= this.begin && that.end <= this.end )
-				return true;
-			
-			return false;
-		}
-		
-		public boolean encapsulates(Range that) {
-			return ( this.begin <= that.begin && this.end >= that.end ) ? true : false; 
-		}
-		
-		public boolean includes(int i) {
-			// tbd - is Range inclusive on both ends??
-			return ( i >= this.begin && i <= this.end ) ? true : false;
-		}
-	}
-
-	/*
 	 * Base class for Internal and Leaf Nodes.
 	 */
 	interface Node {
@@ -323,7 +260,8 @@ public class ACETree  {
 	
 	ArrayList<Record> theRecords;
 	
-	private static int LOG_LEAF_SIZE = 1;		// aribtrary...
+	// Note that this is the LOG - so if you want 128, use 7
+	private static int LOG_LEAF_SIZE = 10;		 
 	protected Node root;
 	protected int height;
 
@@ -401,14 +339,14 @@ public class ACETree  {
 		assignLeaves(this.root, theRecords);
 		
 		for( Record rec : theRecords )
-			System.out.printf( "%3d", rec.section);
-		System.out.println("");
+			Util.log( Util.Verbose, "%3d", rec.section);
+		Util.log( Util.Verbose, "\n" );
 		for( Record rec : theRecords )
-			System.out.printf( "%3d", rec.leafID);
-		System.out.println("");
+			Util.log( Util.Verbose, "%3d", rec.leafID);
+		Util.log( Util.Verbose, "\n" );
 		for( Record rec : theRecords )
-			System.out.printf( "%3d", rec.value);
-		System.out.println("");
+			Util.log( Util.Verbose, "%3d", rec.value);
+		Util.log( Util.Verbose, "\n");
 		
 		
 	}
@@ -560,10 +498,10 @@ public class ACETree  {
 	}
 
 	public void print() {
-	if( root != null)
-		print(root);
-	else 
-		System.out.printf("empty tree\n");
+		if( root != null)
+			print(root);
+		else 
+			System.out.printf("empty tree\n");
 	}
 	
 	private void print(Node n) {
@@ -666,7 +604,7 @@ public class ACETree  {
 			}
 			
 			System.out.printf( "searching for 20-50\n");
-			ACETreeSearch treeSearch = new ACETreeSearch(aceTree, aceTree.new Range(20,50));
+			ACETreeSearch treeSearch = new ACETreeSearch(aceTree, new Range(20,50));
 			
 			ArrayList<Integer> finalResult = new ArrayList<Integer>();
 			

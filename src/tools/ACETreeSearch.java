@@ -7,7 +7,7 @@ import tools.ACETree.InternalNode;
 import tools.ACETree.LeafSection;
 import tools.ACETree.LeafNode;
 import tools.ACETree.Node;
-import tools.ACETree.Range;
+import tools.Range;
 
 public class ACETreeSearch {
 	/* 
@@ -221,19 +221,19 @@ public class ACETreeSearch {
 		}
 		
 		void print() {
-			System.out.printf( "bucketID: %d ranges : %d: totalNeeded: %d totalObtained %d", bucketID, bucketRanges.size(), this.totalNeeded, this.totalObtained );
+			Util.log( Util.Verbose, "bucketID: %d ranges : %d: totalNeeded: %d totalObtained %d", bucketID, bucketRanges.size(), this.totalNeeded, this.totalObtained );
 			for( BucketRange bucketRange  : bucketRanges ) {
-				System.out.printf( "[%d-%d] (%s) ", bucketRange.r.begin, bucketRange.r.end, bucketRange.getType() );
+				Util.log( Util.Verbose, "[%d-%d] (%s) ", bucketRange.r.begin, bucketRange.r.end, bucketRange.getType() );
 			}
-			System.out.printf( " elements: " );
-			for( int elem : this.elements) System.out.printf( "[%d]", elem);
-			System.out.printf("\n");
+			Util.log( Util.Verbose, " elements: " );
+			for( int elem : this.elements) Util.log( Util.Verbose, "[%d]", elem);
+			Util.log( Util.Verbose, "\n");
 		}
 		
 	}
 	ArrayList<Bucket> buckets;
 	
-	public ACETreeSearch(ACETree aceTree, ACETree.Range queryRange) {
+	public ACETreeSearch(ACETree aceTree, Range queryRange) {
 		this.tree = aceTree;
 		this.queryRange = queryRange;
 
@@ -252,7 +252,7 @@ public class ACETreeSearch {
 		}
 		
 		// print the buckets:
-		System.out.printf( "Buckets:\n" );
+		Util.log( Util.Verbose, "Buckets:\n" );
 		for( Bucket bucket : buckets ) 
 			bucket.print();
 	}
@@ -311,43 +311,55 @@ public class ACETreeSearch {
 	 * The "shuttle" name is borrowed from the Algorithm described in the paper.
 	 * 
 	 * Please see algorithm described - we have tried to be true to it.
+	 * 
+	 * Each stab touches one leaf node - we return as soon as we retrieve the data from a single leaf node...
 	 */
-	private void shuttle(Node node, Range range, ArrayList<Integer> result) {
+	private boolean shuttle(Node node, Range range, ArrayList<Integer> result) {
 		if( node instanceof InternalNode ) {
 			InternalNode in = (InternalNode)node;
 			if( isSearchDone( in.left ) && isSearchDone( in.right ) ) {
 				setSearchDone(node);
 			} else if( !isSearchDone(in.right) && isSearchDone(in.left) ) {
 				/* only right is not done */
-				shuttle(in.right, range, result);
+				if( shuttle(in.right, range, result) ) 
+					return true;
 			} else if( !isSearchDone(in.left) && isSearchDone(in.right) ) {
 				/* only left is not done */
-				shuttle(in.left, range, result);
+				if( shuttle(in.left, range, result) ) 
+					return true;
 			} else {
 				/* both the children are not done: */
 				if( range.overlaps(in.left.getDataRange()) && !range.overlaps(in.right.getDataRange())) {
 					/* overlaps only with left */
-					shuttle(in.left, range, result);
+					if( shuttle(in.left, range, result) )
+						return true;
 				} else if( range.overlaps(in.right.getDataRange()) && !range.overlaps(in.left.getDataRange())) {
 					/* overlaps only with right */
-					shuttle(in.right, range, result);
+					if( shuttle(in.right, range, result) )
+						return true;
 				} else {
 					/* overlaps both sides or none */
 					NodeSearchInfo searchInfo = this.searchNodes.get(node);
 					if( searchInfo.next == NodeSearchInfo.LEFT ) {
-						shuttle(in.left, range, result);
+						if( shuttle(in.left, range, result) )
+							return true;
 						searchInfo.next = NodeSearchInfo.RIGHT;
 					}
 					if( searchInfo.next == NodeSearchInfo.RIGHT ) {
-						shuttle(in.right, range, result);
+						if( shuttle(in.right, range, result) ) 
+							return true;
 						searchInfo.next = NodeSearchInfo.LEFT;
 					}
 				}
 			}
 		} else {
+			/* one stab done: */
 			combineTuples(node, range, result);
 			setSearchDone(node);
+			return true;
 		}
+		
+		return false;
 	}
 	
 	private void combineTuples(Node n, Range queryRange, ArrayList<Integer> result) {
@@ -355,7 +367,7 @@ public class ACETreeSearch {
 		LeafNode leaf = (LeafNode)n;
 		
 		
-		System.out.printf( "combineTuples: leafNode index %d\n", leaf.leafIndex);
+		Util.log( Util.Verbose, "combineTuples: leafNode index %d\n", leaf.leafIndex);
 		
 		/* 
 		 * I have interpreted the logic in a certain way. :-)
@@ -371,14 +383,14 @@ public class ACETreeSearch {
 			/* check if the query range completely includes the section's range */
 			if( leafSection.r.encapsulates( queryRange )) {
 				/* filter and add entries */
-				System.out.printf( "sectionIndex %d (%d-%d) completely encapsulates query \n", sectionIndex, leafSection.r.begin, leafSection.r.end);
+				Util.log( Util.Verbose, "sectionIndex %d (%d-%d) completely encapsulates query \n", sectionIndex, leafSection.r.begin, leafSection.r.end);
 				
 				filterAndAdd(queryRange, leafSection.elements, result);
 			} else if( queryRange.overlaps(leafSection.r )) {
 				/* extend and add to the current section in the bucket */
 				Bucket b = this.buckets.get(sectionIndex);
 				
-				System.out.printf( "sectionIndex %d (%d-%d) overlaps query \n", sectionIndex, leafSection.r.begin, leafSection.r.end);
+				Util.log( Util.Verbose, "sectionIndex %d (%d-%d) overlaps query \n", sectionIndex, leafSection.r.begin, leafSection.r.end);
 				b.print();
 				
 				/* 
@@ -387,11 +399,11 @@ public class ACETreeSearch {
 				 * addLeaf returns TRUE when the section is complete.  In this case, we can merge the elements into the Result Array.
 				 */
 				if( b.addLeaf(this.tree.height, leaf.leafIndex, leafSection) ) {
-					System.out.printf( "Completed the leaf -> Flushing the elements\n");
+					Util.log( Util.Verbose, "Completed the leaf -> Flushing the elements\n");
 					b.flushElements(this.queryRange, result);
 				}
 				
-				System.out.printf( "bucket -> after adding leaf..\n");
+				Util.log( Util.Verbose, "bucket -> after adding leaf..\n");
 				b.print();
 			}
 			
@@ -401,12 +413,12 @@ public class ACETreeSearch {
 	}
 	
 	private static void filterAndAdd(Range queryRange, ArrayList<Integer> src, ArrayList<Integer> dest) {
-		System.out.printf( "Filter and add " );
+		Util.log( Util.Verbose, "Filter and add " );
 		for( Integer i : src ) {
-			System.out.printf( "[%d] ", i );
+			Util.log( Util.Verbose, "[%d] ", i );
 			if( queryRange.includes(i) ) 
 				dest.add(i);
 		}
-		System.out.printf("\n");
+		Util.log( Util.Verbose, "\n");
 	}
 }
